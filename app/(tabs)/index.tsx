@@ -1,75 +1,148 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/HelloWave';
+import { LogoutFunction } from '@/app/Services/Authentication';
+import FloatingButton from '@/components/FAB';
 import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
+import * as React from 'react';
+import { useEffect, useState } from 'react';
+import { FlatList, ToastAndroid, View } from 'react-native';
+import { Divider, Icon, IconButton, MD3Colors, Menu, PaperProvider, useTheme } from 'react-native-paper';
+import ImageCardCover from '../../components/ImageCardCover';
+import { ThemedView } from '../Components/Common/Theme';
+import { configuration } from '../Configuration/ServerConfig';
+import { TransactionType } from '../Datatype/interface';
+import database from '../LocalStorage/database';
 
 export default function HomeScreen() {
+  const theme = useTheme();
+
+  const [imagesToDisplay, setImagesToDisplay] = useState<TransactionType[]>([])
+  const [lastObj,setLastObj] = useState<TransactionType>()
+  const [visible, setVisible] = React.useState(false);
+  const [nestedMenuVisible, setNestedMenuVisible] = useState(false);
+
+  const openMenu = () => setVisible(true);
+  const closeMenu = () => setVisible(false);
+  const openNestedMenu = () => setNestedMenuVisible(true);
+  const closeNestedMenu = () => setNestedMenuVisible(false);
+  
+  const getImagesToDisplay = async () => {
+    const imagesList = await database.get('transactions').query().fetch()
+    const parsedImageList: TransactionType[] = imagesList.map((item:any) => item._raw as any)
+    console.log("parsedImageList",parsedImageList);
+    
+    setImagesToDisplay(parsedImageList)
+    const lastAddedObj = parsedImageList[parsedImageList.length -1]
+    console.log("lastAddedObj",lastAddedObj);
+    setLastObj(lastAddedObj)    
+  }
+
+  useEffect(() => {
+    getImagesToDisplay()
+  }, [])
+
+  const handleLogout = async () => {
+    console.log("inside logout");
+
+    let loginId = await AsyncStorage.getItem('loginId');
+    console.log("loginId",loginId);
+    
+    const logout = await LogoutFunction(loginId, configuration.companyID);
+    if (logout) {
+      ToastAndroid.showWithGravity("Logout Successfully", ToastAndroid.SHORT, ToastAndroid.CENTER);
+      await AsyncStorage.clear();
+      router.replace("/SignIn");
+    } else {
+      console.log("Something went wrong");
+    }
+  };
+  
+  const handleOnPress = () => {
+    console.log("Navigating to /camera");
+    router.replace('/Camera')
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
+    <>
+      <PaperProvider>
+      <ParallaxScrollView
+  headerBackgroundColor={{ light: '#DD9BCF', dark: '#DD9BCF' }}
+  headerComponent={
+    <View style={{
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 16,
+      paddingTop: 40, 
+      height: 120, 
+      width: '100%',
+    }}>
+      <ThemedText type="title" style={{ color: '#F6FFEE' }}>AR</ThemedText>
+      <Menu
+        visible={visible}
+        onDismiss={closeMenu}
+        anchor={
+          <IconButton
+            icon="menu"
+            size={30}
+            onPress={openMenu}
+            iconColor="#F6FFEE"
+          />
+        }
+        contentStyle={{ backgroundColor: theme.colors.surface }}
+      >
+        <Menu.Item onPress={() => { }} title="Profile" />
+        <Menu.Item onPress={openNestedMenu} title="View" />
+        <Divider />
+        <Menu.Item onPress={handleLogout} title="Logout" />
+      </Menu>
+
+      <Menu
+        visible={nestedMenuVisible}
+        onDismiss={closeNestedMenu}
+        anchor={<View />} 
+        contentStyle={{ backgroundColor: theme.colors.surface }}
+      >
+        <Menu.Item onPress={() => console.log("Option 1")} title="Option 1" />
+        <Menu.Item onPress={() => console.log("Option 2")} title="Option 2" />
+      </Menu>
+    </View>
+  }
+>
+
+  <FlatList
+    data={imagesToDisplay}
+    keyExtractor={(item, index) => index.toString()}
+    renderItem={({ item }) => (
+      <ImageCardCover
+        source={item.image_url !== "" ? { uri: item.image_url } : require('../assets/images/noimage.jpg')}
+      />
+    )}
+    ListEmptyComponent={
+      <ThemedView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: '50%', backgroundColor: 'white' }}>
         <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
+          You can add an image by clicking on the&nbsp;
+          <Icon source="camera" color={MD3Colors.secondary0} size={20} /> below!!
         </ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    }
+  />
+</ParallaxScrollView>
+
+      </PaperProvider>
+
+      <FloatingButton
+        iconName={'camera'}
+        visible={true}
+        extended={false}
+        label="Camera"
+        animateFrom="right"
+        iconMode="static"
+        showAddModal={() => ("")}
+        buttonColor={lastObj?.swipe_flag?.trim().toUpperCase() === "Y" ?'#F48882' : '#C6FAD2' }
+        onPress={handleOnPress}
+      />
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
