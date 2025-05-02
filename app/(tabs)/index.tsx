@@ -58,8 +58,8 @@ export default function HomeScreen() {
     }
   };
   
+  
   const handleOnPress = () => {
-    console.log("Navigating to /camera");
     router.replace('/Camera')
   }
 
